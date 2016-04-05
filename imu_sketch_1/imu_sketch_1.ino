@@ -113,7 +113,7 @@ class Angle
     float gy=(imu.gy-gy_cal)*gyro_scale;
     float gz=(imu.gz-gz_cal)*gyro_scale;
     //acc_pitch = -atan2(ay,az)*180/PI;
-    acc_roll = -atan2(ax,az)*180/PI + 90;
+    acc_roll = -atan2(ay,az)*180/(PI) - 50;
     //predicted_pitch = alpha*(predicted_pitch + gx*dt)+(1-alpha)*acc_pitch;
     predicted_roll = alpha*(predicted_roll - gy*dt) + (1-alpha)*acc_roll;
     //angle_into +=predicted_roll*dt;
@@ -123,7 +123,14 @@ class Angle
     Serial.print(" gy: ");
     Serial.print(gy);
     Serial.print(" gz: ");
-    Serial.println(gz);
+    Serial.print(gz);
+    Serial.println('\r');
+    Serial.print(" ax: ");
+    Serial.print(ax);
+    Serial.print(" ay: ");
+    Serial.print(ay);
+    Serial.print(" az: ");
+    Serial.print(az);
   }
   float pitch(){
     return predicted_pitch;
@@ -131,6 +138,10 @@ class Angle
   float angle(){
     return predicted_roll;
   }
+  float accroll(){
+    return (acc_roll);
+  }
+
 
 
 };
@@ -158,6 +169,9 @@ void setup() {
 
 void loop() {
   angle.update();
+  Serial.println(" ");
+  Serial.println(angle.angle());
+//  Serial.println(angle.accroll());
 }
 
 

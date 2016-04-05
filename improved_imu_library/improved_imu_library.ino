@@ -51,16 +51,16 @@ Adafruit_Simple_AHRS          ahrs(&accel, &mag);
 * float Kd_scaler = 5;
 * float offset_scaler = 0.01;
 */
+#define ALPHA 20
 
 int ledPin = 13;      // LED connected to digital pin 9
 int phasePin1 = 22;
 int phasePin2 = 20;
 int dutyPin1 = 23;
 int dutyPin2 = 21;
-int val = 127;        // variable to store the read value
+int val = 0;        // variable to store the read value
 
-boolean mode = true; // count up
-boolean dir = true;
+boolean dir = true; // direction
 
 void setup()
 {
@@ -82,18 +82,15 @@ void setup()
 
 void loop(void)
 {
-  if(val >= 255){
-    mode = false;
-    dir = !dir;
-  }
-  else if(val <=190){
-    mode = true;
-    dir = !dir;
-  }
-  analogWrite(dutyPin1, val);  // analogRead values go from 0 to 1023, analogWrite values from 0 to 255
-  digitalWrite(phasePin1, dir);
-  analogWrite(dutyPin2, val);
-  digitalWrite(phasePin2, !dir);
+//  if(val >= 255){
+//    mode = false;
+//    dir = !dir;
+//  }
+//  else if(val <=190){
+//    mode = true;
+//    dir = !dir;
+//  }
+  
   sensors_vec_t   orientation;
   sensors_event_t event;
   gyro.getEvent(&event);
@@ -105,10 +102,25 @@ void loop(void)
     Serial.print(F("Orientation: "));
     Serial.print(orientation.roll);
     Serial.print(F(" "));
-    Serial.print(orientation.pitch);
-    Serial.print(F(" "));
-    Serial.print(orientation.heading);
-    Serial.println(F(""));
+
+    val = 100 + orientation.roll;
+
+    Serial.print(F("Val: "));
+    Serial.println(abs(val));
+    
+    analogWrite(dutyPin1, ALPHA * abs(val));  // analogRead values go from 0 to 1023, analogWrite values from 0 to 255
+    digitalWrite(phasePin1, val >0 ? HIGH : LOW);
+    Serial.print(F("Dir1: "));
+    Serial.print(digitalRead(phasePin1));
+    analogWrite(dutyPin2, ALPHA * abs(val));
+    digitalWrite(phasePin2, val >0 ? HIGH : LOW);
+    Serial.print(F(" Dir2: "));
+    Serial.println(digitalRead(phasePin2));
+    
+//    Serial.print(orientation.pitch);
+//    Serial.print(F(" "));
+//    Serial.print(orientation.heading);
+//    Serial.println(F(""));
   }
 
    /* Display the results (speed is measured in rad/s) */
@@ -118,8 +130,8 @@ void loop(void)
   Serial.println("rad/s ");
   
   delay(5);
-  if(mode){
-    val++;
-  }
-  else val--;
+//  if(mode){
+//    val++;
+//  }
+//  else val--;
 }

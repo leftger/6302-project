@@ -293,7 +293,7 @@ void loop()
     mode = false;
     dir = !dir;
   }
-  else if(val <=200){
+  else if(val <=190){
     mode = true;
     dir = !dir;
   }
@@ -345,6 +345,16 @@ void doIMUStuff()
     //printSensorReadings();
     float runTime = (float)(millis() - startTime) / 1000.0;
     float gyroRate = (float)gyroReadCounter / runTime;
+    float accelRate = (float)accelReadCounter / runTime;
+    Serial.print("A: ");
+    Serial.print(imu.calcAccel(imu.ax));
+    Serial.print(", ");
+    Serial.print(imu.calcAccel(imu.ay));
+    Serial.print(", ");
+    Serial.print(imu.calcAccel(imu.az));
+    Serial.print(" g \t| ");
+    Serial.print(accelRate);
+    Serial.println(" Hz");
     Serial.print("G: ");
     Serial.print(imu.calcGyro(imu.gx));
     Serial.print(", ");
@@ -352,7 +362,8 @@ void doIMUStuff()
     Serial.print(", ");
     Serial.print(imu.calcGyro(imu.gz));
     Serial.print(" dps \t| ");
-    Serial.println(gyroRate);
+    Serial.print(gyroRate);
+    Serial.println(" Hz");
     lastPrint = millis();
   }
 }

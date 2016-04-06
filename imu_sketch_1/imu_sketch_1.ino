@@ -69,6 +69,37 @@ float Ki_scaler = 1;
 float Kd_scaler = 5;
 float desired_scaler = 180;
 
+class KalmanFilter
+{
+  float q; // process noise covariance
+  float r; // measurement noise covariance
+  float p; // estimation error covariance
+  float x; // value
+  float k; // kalman gain
+
+  public:
+  KalmanFilter(float q, float r, float p, float x){
+    this->q = q; // .125
+    this->r = r; // 3
+    this->p = p; // .75
+    this->x = x; // 0
+  }
+
+  void update(float measurement){
+    // prediction update
+    p = p + q;
+
+    // measurement update
+    k = p / (p + r);
+    x = x + k * (measurement - x);
+    p = (1 - k) * p;
+  }
+
+  float getMeasurement(){
+    return x;
+  }
+};
+
 class Angle
 {
   float ax_cal;
@@ -183,6 +214,7 @@ class Angle
 };
 
 Angle angle;
+KalmanFilter kfilter(.125, 3 ,.75, 0);
 
 void setup() {
   Serial.begin(115200);
@@ -214,12 +246,14 @@ void setup() {
 
 void loop() {
   angle.update();
+  kfilter.update(angle.pitch());
   desired = desired_scaler * (float(analogRead(desired_pin)) / 1023);
   Kp = Kp_scaler * (float(analogRead(Kp_pin)) / 1023);
   Kd = Kd_scaler * (float(analogRead(Kd_pin)) / 1023);
   Ki = Ki_scaler * (float(analogRead(Ki_pin)) / 1023);
   error[0] = error[1]; // previous error
-  error[1]= desired - angle.pitch(); // current error
+  error[1] = desired - kfilter.getMeasurement(); // error with kalman filter
+  //error[1]= desired - angle.pitch(); // current error
   error_integral += error[1] * angle.deltat();
   error_derivative = (error[1] - error[0]) / angle.deltat(); 
   theta = Kp*error[1] + Ki*error_integral + Kd*error_derivative;

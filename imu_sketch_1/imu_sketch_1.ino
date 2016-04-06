@@ -23,6 +23,7 @@
  * A3        ------------ Kp Gain
  * A2        ------------ Kd Gain
  * A1        ------------ Ki Gain
+ * A0        ------------ Desired
  * 
  * Development Environment Specifics:
  * IDE: Arduino 1.6.7 with Teensyduino package installed with Homebrew
@@ -48,6 +49,7 @@ LSM9DS1 imu;
 #define Kp_pin A3
 #define Kd_pin A2
 #define Ki_pin A1
+#define desired_pin A0
 
 float desired = 0;
 
@@ -65,7 +67,7 @@ float offset = 0;
 float Kp_scaler = 5;
 float Ki_scaler = 1;
 float Kd_scaler = 5;
-float offset_scaler = 0.01;
+float desired_scaler = 180;
 
 class Angle
 {
@@ -175,17 +177,12 @@ class Angle
   float angle(){
     return predicted_roll;
   }
-
   float deltat(){
     return dt;
   }
-
-
 };
 
-
 Angle angle;
-
 
 void setup() {
   Serial.begin(115200);
@@ -203,7 +200,7 @@ void setup() {
   Serial.println("Setup Good");
   angle.calibrate();
 
-    // setup for the motor driver pins
+  // setup for the motor driver pins
   pinMode(phasePin1, OUTPUT);   // sets the pin as output
   pinMode(phasePin2, OUTPUT);
   pinMode(dutyPin1, OUTPUT);
@@ -211,18 +208,20 @@ void setup() {
   pinMode(Kd_pin, INPUT);
   pinMode(Ki_pin, INPUT);
   pinMode(Kp_pin, INPUT);
+  pinMode(desired_pin, INPUT);
   analogReference(DEFAULT);
 }
 
 void loop() {
   angle.update();
-  Kp = Kp_scaler * (analogRead(Kp_pin) / 1023);
-  Kd = Kd_scaler * (analogRead(Kd_pin) / 1023);
-  Ki = Ki_scaler * (analogRead(Ki_pin) / 1023);
+  desired = desired_scaler * (float(analogRead(desired_pin)) / 1023);
+  Kp = Kp_scaler * (float(analogRead(Kp_pin)) / 1023);
+  Kd = Kd_scaler * (float(analogRead(Kd_pin)) / 1023);
+  Ki = Ki_scaler * (float(analogRead(Ki_pin)) / 1023);
   error[0] = error[1]; // previous error
   error[1]= desired - angle.pitch(); // current error
   error_integral += error[1];
-  error_derivative = error[1] - error[0] / angle.deltat(); 
+  error_derivative = (error[1] - error[0]) / angle.deltat(); 
   theta = Kp*error[1] + Ki*error_integral + Kd*error_derivative;
 
   // Print actual output angle to Arduino Serial Plotter

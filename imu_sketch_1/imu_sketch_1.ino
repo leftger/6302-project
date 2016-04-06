@@ -7,12 +7,24 @@ LSM9DS1 imu;
 
 #define LSM9DS1_M  0x1E // 
 #define LSM9DS1_AG  0x6B //
+#define DESIRED 139.15f
 
+float desired = 0;
+
+int ledPin = 13;      // LED connected to digital pin 9
+int phasePin1 = 22;
+int phasePin2 = 20;
+int dutyPin1 = 23;
+int dutyPin2 = 21;
+float theta = 0;
+float error[2];
+float error_integral = 0;
+float error_derivative = 0;
 
 char message[100];
-float Kp = 0;
-float Ki = 0;
-float Kd = 0;
+float Kp = 15;
+float Ki = 0.001;
+float Kd = 1;
 float offset = 0;
 
 float Kp_scaler = 5;
@@ -112,25 +124,29 @@ class Angle
     float gx=(imu.gx-gx_cal)*gyro_scale;//into dps
     float gy=(imu.gy-gy_cal)*gyro_scale;
     float gz=(imu.gz-gz_cal)*gyro_scale;
-    //acc_pitch = -atan2(ay,az)*180/PI;
-    acc_roll = -atan2(ay,az)*180/(PI) - 50;
-    //predicted_pitch = alpha*(predicted_pitch + gx*dt)+(1-alpha)*acc_pitch;
+    acc_pitch = -atan2(ay,az)*180/PI;
+    acc_roll = -atan2(ax,az)*180/PI + 90;
+    predicted_pitch = alpha*(predicted_pitch + gx*dt)+(1-alpha)*acc_pitch;
     predicted_roll = alpha*(predicted_roll - gy*dt) + (1-alpha)*acc_roll;
     //angle_into +=predicted_roll*dt;
 
-    Serial.print("gx: ");
-    Serial.print(gx);
-    Serial.print(" gy: ");
-    Serial.print(gy);
-    Serial.print(" gz: ");
-    Serial.print(gz);
-    Serial.println('\r');
-    Serial.print(" ax: ");
-    Serial.print(ax);
-    Serial.print(" ay: ");
-    Serial.print(ay);
-    Serial.print(" az: ");
-    Serial.print(az);
+//    Serial.print("gx: ");
+//    Serial.print(gx);
+//    Serial.print(" gy: ");
+//    Serial.print(gy);
+//    Serial.print(" gz: ");
+//    Serial.println(gz);
+//    Serial.print("ax: ");
+//    Serial.print(ax);
+//    Serial.print(" ay: ");
+//    Serial.print(ay);
+//    Serial.print(" az: ");
+//    Serial.println(az);
+
+      Serial.print("Pitch: ");
+      Serial.print(pitch());
+      Serial.print(" Roll: ");
+      Serial.println(angle());
   }
   float pitch(){
     return predicted_pitch;
@@ -138,10 +154,10 @@ class Angle
   float angle(){
     return predicted_roll;
   }
-  float accroll(){
-    return (acc_roll);
-  }
 
+  float deltat(){
+    return dt;
+  }
 
 
 };
@@ -165,13 +181,32 @@ void setup() {
   }
   Serial.println("Setup Good");
   angle.calibrate();
+
+    // setup for the motor driver pins
+  pinMode(phasePin1, OUTPUT);   // sets the pin as output
+  pinMode(phasePin2, OUTPUT);
+  pinMode(dutyPin1, OUTPUT);
+  pinMode(dutyPin2, OUTPUT);
+  analogReference(DEFAULT);
 }
 
 void loop() {
   angle.update();
-  Serial.println(" ");
-  Serial.println(angle.angle());
-//  Serial.println(angle.accroll());
+  //desired = analogRead();
+  error[0] = error[1]; // previous error
+  error[1]= desired - angle.pitch(); // current error
+  error_integral += error[1];
+  error_derivative = error[1] - error[0] / angle.deltat(); 
+  theta = Kp*error[1] + Ki*error_integral + Kd*error_derivative;
+
+  analogWrite(dutyPin1, abs(theta));  // analogRead values go from 0 to 1023, analogWrite values from 0 to 255
+  digitalWrite(phasePin1, theta >0 ? HIGH : LOW);
+  Serial.print(F("Dir1: "));
+  Serial.print(digitalRead(phasePin1));
+  analogWrite(dutyPin2, abs(theta));
+  digitalWrite(phasePin2, theta >0 ? HIGH : LOW);
+  Serial.print(F(" Dir2: "));
+  Serial.println(digitalRead(phasePin2));
 }
 
 

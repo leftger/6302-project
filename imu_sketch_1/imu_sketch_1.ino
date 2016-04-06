@@ -1,3 +1,34 @@
+/***************************************************************************
+ * 6.033 Spring 2016 Midterm Project
+ * Grant Gunnison and Gerzain Mata
+ * Segway for Mice -- adapted from SparkFun LSM9DS1 code and
+ * MIT's Joe Steinmeyer's sample IMU code
+ * Creation Date: April 2nd 2013
+ * 
+ * This Arduino sketch drives a Texas Instruments dual directional motor
+ * board and a SparkFun LSM9DS1 IMU and gets accelerometer readings from
+ * the IMU.  This should then give the Teensy board the ability to
+ * compensate for any imbalance and drive the motor in a corresponding
+ * direction.
+ * 
+ * TEENSY    ------------ SparkFun LSM9DS1
+ * A9 (PWM)  ------------ ENB (PWM Motor 2)
+ * A8        ------------ PHB (Direction Motor 2)
+ * A7        ------------ ENA (PWM Motor 1)
+ * A6        ------------ PHA (Direction Motor 1)
+ * A5 (SCL0) ------------ SCL
+ * A4 (SDA0) ------------ SDA0
+ * 
+ * TEENSY    ------------ Potentiometers
+ * A3        ------------ Kp Gain
+ * A2        ------------ Kd Gain
+ * A1        ------------ Ki Gain
+ * 
+ * Development Environment Specifics:
+ * IDE: Arduino 1.6.7 with Teensyduino package installed with Homebrew
+ * Hardware Platform: Teensy 3.1
+ * SparkFun LSM9DS1 Breakout Version: 1.0
+ **************************************************************************/
 #include <Wire.h>
 #include <SPI.h>
 #include <math.h>
@@ -9,22 +40,26 @@ LSM9DS1 imu;
 #define LSM9DS1_AG  0x6B //
 #define DESIRED 139.15f
 
+#define ledPin 13      // LED connected to digital pin 9
+#define phasePin1 22
+#define phasePin2 20
+#define dutyPin1 23
+#define dutyPin2 21
+#define Kp_pin A3
+#define Kd_pin A2
+#define Ki_pin A1
+
 float desired = 0;
 
-int ledPin = 13;      // LED connected to digital pin 9
-int phasePin1 = 22;
-int phasePin2 = 20;
-int dutyPin1 = 23;
-int dutyPin2 = 21;
 float theta = 0;
 float error[2];
 float error_integral = 0;
 float error_derivative = 0;
 
 char message[100];
-float Kp = 15;
-float Ki = 0.001;
-float Kd = 1;
+float Kp = 0;
+float Ki = 0;
+float Kd = 0;
 float offset = 0;
 
 float Kp_scaler = 5;
@@ -129,24 +164,10 @@ class Angle
     predicted_pitch = alpha*(predicted_pitch + gx*dt)+(1-alpha)*acc_pitch;
     predicted_roll = alpha*(predicted_roll - gy*dt) + (1-alpha)*acc_roll;
     //angle_into +=predicted_roll*dt;
-
-//    Serial.print("gx: ");
-//    Serial.print(gx);
-//    Serial.print(" gy: ");
-//    Serial.print(gy);
-//    Serial.print(" gz: ");
-//    Serial.println(gz);
-//    Serial.print("ax: ");
-//    Serial.print(ax);
-//    Serial.print(" ay: ");
-//    Serial.print(ay);
-//    Serial.print(" az: ");
-//    Serial.println(az);
-
-      Serial.print("Pitch: ");
-      Serial.print(pitch());
-      Serial.print(" Roll: ");
-      Serial.println(angle());
+//      Serial.print("Pitch: ");
+//      Serial.print(pitch());
+//      Serial.print(" Roll: ");
+//      Serial.println(angle());
   }
   float pitch(){
     return predicted_pitch;
@@ -187,27 +208,33 @@ void setup() {
   pinMode(phasePin2, OUTPUT);
   pinMode(dutyPin1, OUTPUT);
   pinMode(dutyPin2, OUTPUT);
+  pinMode(Kd_pin, INPUT);
+  pinMode(Ki_pin, INPUT);
+  pinMode(Kp_pin, INPUT);
   analogReference(DEFAULT);
 }
 
 void loop() {
   angle.update();
-  //desired = analogRead();
+  Kp = Kp_scaler * (analogRead(Kp_pin) / 1023);
+  Kd = Kd_scaler * (analogRead(Kd_pin) / 1023);
+  Ki = Ki_scaler * (analogRead(Ki_pin) / 1023);
   error[0] = error[1]; // previous error
   error[1]= desired - angle.pitch(); // current error
   error_integral += error[1];
   error_derivative = error[1] - error[0] / angle.deltat(); 
   theta = Kp*error[1] + Ki*error_integral + Kd*error_derivative;
 
+  // Print actual output angle to Arduino Serial Plotter
+  Serial.println(angle.pitch());
+  
   analogWrite(dutyPin1, abs(theta));  // analogRead values go from 0 to 1023, analogWrite values from 0 to 255
   digitalWrite(phasePin1, theta >0 ? HIGH : LOW);
-  Serial.print(F("Dir1: "));
-  Serial.print(digitalRead(phasePin1));
+//  Serial.print(F("Dir1: "));
+//  Serial.print(digitalRead(phasePin1));
   analogWrite(dutyPin2, abs(theta));
   digitalWrite(phasePin2, theta >0 ? HIGH : LOW);
-  Serial.print(F(" Dir2: "));
-  Serial.println(digitalRead(phasePin2));
+//  Serial.print(F(" Dir2: "));
+//  Serial.println(digitalRead(phasePin2));
 }
-
-
 

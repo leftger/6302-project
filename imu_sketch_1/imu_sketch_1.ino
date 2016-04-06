@@ -220,7 +220,7 @@ void loop() {
   Ki = Ki_scaler * (float(analogRead(Ki_pin)) / 1023);
   error[0] = error[1]; // previous error
   error[1]= desired - angle.pitch(); // current error
-  error_integral += error[1];
+  error_integral += error[1] * angle.deltat();
   error_derivative = (error[1] - error[0]) / angle.deltat(); 
   theta = Kp*error[1] + Ki*error_integral + Kd*error_derivative;
 

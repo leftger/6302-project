@@ -52,11 +52,14 @@ LSM9DS1 imu;
 #define Kd_pin A2
 #define Ki_pin A1
 #define desired_pin A0
+#define outMax 255
+#define outMin 0
 
 float desired = 0;
 
 float theta = 0;
-float error[2];
+float error;
+float measurement[2];
 float error_integral = 0;
 float error_derivative = 0;
 
@@ -249,19 +252,23 @@ void setup() {
 void loop() {
   angle.update();
   kfilter.update(angle.pitch());
+  measurement[0] = measurement[1];
+  measurement[1] = kfilter.getMeasurement();
   desired = desired_scaler * (float(analogRead(desired_pin)) / 1023);
   Kp = Kp_scaler * (float(analogRead(Kp_pin)) / 1023);
   Kd = Kd_scaler * (float(analogRead(Kd_pin)) / 1023);
   Ki = Ki_scaler * (float(analogRead(Ki_pin)) / 1023);
-  error[0] = error[1]; // previous error
-  error[1] = desired - kfilter.getMeasurement(); // error with kalman filter
+  error = desired - kfilter.getMeasurement(); // error with kalman filter
   //error[1]= desired - angle.pitch(); // current error
-  error_integral += error[1] * angle.deltat();
-  error_derivative = (error[1] - error[0]) / angle.deltat(); 
-  theta = Kp*error[1] + Ki*error_integral + Kd*error_derivative;
-
+  error_integral += error * angle.deltat() * Ki;
+  if(error_integral > outMax) error_integral = outMax;
+  else if(error_integral < outMin) error_integral = outMin;
+  error_derivative = (measurement[1] - measurement[0]) / angle.deltat(); 
+  theta = Kp*error + error_integral - Kd*error_derivative;
+  if(theta > outMax) theta = outMax;
+  else if(theta < outMin) theta = outMin;
   // Print actual output angle to Arduino Serial Plotter
-  Serial.println(angle.pitch());
+  Serial.println(measurement[1]);
   
   analogWrite(dutyPin1, abs(theta));  // analogRead values go from 0 to 1023, analogWrite values from 0 to 255
   digitalWrite(phasePin1, theta >0 ? HIGH : LOW);

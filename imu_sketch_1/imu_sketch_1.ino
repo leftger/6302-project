@@ -11,11 +11,13 @@
  * compensate for any imbalance and drive the motor in a corresponding
  * direction.
  * 
- * TEENSY    ------------ SparkFun LSM9DS1
+ * TEENSY    ------------ Pololu DRV8835
  * A9 (PWM)  ------------ ENB (PWM Motor 2)
  * A8        ------------ PHB (Direction Motor 2)
  * A7        ------------ ENA (PWM Motor 1)
  * A6        ------------ PHA (Direction Motor 1)
+ * 
+ * TEENSY    ------------ SparkFun LSM9DS1
  * A5 (SCL0) ------------ SCL
  * A4 (SDA0) ------------ SDA0
  * 

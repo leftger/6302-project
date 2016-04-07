@@ -53,6 +53,7 @@ LSM9DS1 imu;
 #define desired_pin A0
 #define outMax 255
 #define outMin -255
+#define SLIDING_WINDOW_SIZE 5
 
 float desired = 0;
 
@@ -73,27 +74,28 @@ float Ki_scaler = 1;
 float Kd_scaler = 5;
 float desired_scaler = 180;
 
-class SlidingWindowAvgTen
+class SlidingWindowAvg
 {
-  float bins[5];
+  float bins[SLIDING_WINDOW_SIZE];
+  int counter;
+  float total;
   public:
-  SlidingWindowAvgTen(){
-    
+  SlidingWindowAvg(){
+    this->counter = 0;
+    this->total = 0;
   }
   void add(float num){
-    for(int x = 0; x < 4;x++){
-      bins[x] = bins[x+1];
+    total -= bins[counter];
+    bins[counter] = num;
+    total+= bins[counter];
+    counter++;
+    if(counter >= SLIDING_WINDOW_SIZE){
+      counter = 0;
     }
-    bins[4] = num;
   }
   float getAvg(){
-    float ans = 0;
-    for(int x = 0; x < 5;x++){
-      ans+=bins[x];
-    }
-    return ans / 5;
+    return total / SLIDING_WINDOW_SIZE;
   }
-  
 };
 
 class KalmanFilter
@@ -242,10 +244,10 @@ class Angle
 
 Angle angle;
 //KalmanFilter kfilter(.125, 3 ,.75, 0);
-SlidingWindowAvgTen desiredBin;
-SlidingWindowAvgTen kpBin;
-SlidingWindowAvgTen kdBin;
-SlidingWindowAvgTen kiBin;
+SlidingWindowAvg desiredBin;
+SlidingWindowAvg kpBin;
+SlidingWindowAvg kdBin;
+SlidingWindowAvg kiBin;
 
 void setup() {
   Serial.begin(115200);
@@ -281,14 +283,7 @@ void loop() {
   measurement[0] = measurement[1];
   //measurement[1] = kfilter.getMeasurement();
   measurement[1] = angle.pitch();
-  desiredBin.add(float(analogRead(desired_pin)) / 1023);
-  desired = desired_scaler * desiredBin.getAvg();
-  kpBin.add(float(analogRead(Kp_pin)) / 1023);
-  Kp = Kp_scaler * kpBin.getAvg();
-  kdBin.add(float(analogRead(Kd_pin)) / 1023);
-  Kd = Kd_scaler * kdBin.getAvg();
-  kiBin.add(float(analogRead(Ki_pin)) / 1023);
-  Ki = Ki_scaler * kiBin.getAvg();
+  getPIDGainsAndDesired();
   //error = desired - kfilter.getMeasurement(); // error with kalman filter
   error = desired - angle.pitch(); // current error
   error_integral += error * angle.deltat() * Ki;
@@ -299,6 +294,25 @@ void loop() {
   if(theta > outMax) theta = outMax;
   else if(theta < outMin) theta = outMin;
   // Print actual output angle to Arduino Serial Plotter
+  serialSendSystemData();
+  analogWrite(dutyPin1, abs(theta));  // analogRead values go from 0 to 1023, analogWrite values from 0 to 255
+  digitalWrite(phasePin1, theta >0 ? HIGH : LOW);
+  analogWrite(dutyPin2, abs(theta));
+  digitalWrite(phasePin2, theta >0 ? HIGH : LOW);
+}
+
+void getPIDGainsAndDesired(){
+  desiredBin.add(float(analogRead(desired_pin)) / 1023);
+  desired = desired_scaler * desiredBin.getAvg();
+  kpBin.add(float(analogRead(Kp_pin)) / 1023);
+  Kp = Kp_scaler * kpBin.getAvg();
+  kdBin.add(float(analogRead(Kd_pin)) / 1023);
+  Kd = Kd_scaler * kdBin.getAvg();
+  kiBin.add(float(analogRead(Ki_pin)) / 1023);
+  Ki = Ki_scaler * kiBin.getAvg();
+}
+
+void serialSendSystemData(){
   Serial.print("Measured theta: ");
   Serial.print(measurement[1]);
   Serial.print(" Output Motor value: ");
@@ -311,14 +325,5 @@ void loop() {
   Serial.print(Kd);
   Serial.print(" Ki: ");
   Serial.println(Ki);
-  
-  analogWrite(dutyPin1, abs(theta));  // analogRead values go from 0 to 1023, analogWrite values from 0 to 255
-  digitalWrite(phasePin1, theta >0 ? HIGH : LOW);
-//  Serial.print(F("Dir1: "));
-//  Serial.print(digitalRead(phasePin1));
-  analogWrite(dutyPin2, abs(theta));
-  digitalWrite(phasePin2, theta >0 ? HIGH : LOW);
-//  Serial.print(F(" Dir2: "));
-//  Serial.println(digitalRead(phasePin2));
 }
 

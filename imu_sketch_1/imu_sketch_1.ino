@@ -3,7 +3,7 @@
  * Grant Gunnison and Gerzain Mata
  * Segway for Mice -- adapted from SparkFun LSM9DS1 code and
  * MIT's Joe Steinmeyer's sample IMU code
- * Creation Date: April 2nd 2013
+ * Creation Date: April 2nd 2016
  * 
  * This Arduino sketch drives a Texas Instruments dual directional motor
  * board and a SparkFun LSM9DS1 IMU and gets accelerometer readings from
@@ -41,7 +41,6 @@ LSM9DS1 imu;
 
 #define LSM9DS1_M  0x1E // 
 #define LSM9DS1_AG  0x6B //
-#define DESIRED 139.15f
 
 #define ledPin 13      // LED connected to digital pin 9
 #define phasePin1 22
@@ -53,7 +52,7 @@ LSM9DS1 imu;
 #define Ki_pin A1
 #define desired_pin A0
 #define outMax 255
-#define outMin 0
+#define outMin -255
 
 float desired = 0;
 
@@ -69,10 +68,33 @@ float Ki = 0;
 float Kd = 0;
 float offset = 0;
 
-float Kp_scaler = 5;
+float Kp_scaler = 180;
 float Ki_scaler = 1;
 float Kd_scaler = 5;
 float desired_scaler = 180;
+
+class SlidingWindowAvgTen
+{
+  float bins[5];
+  public:
+  SlidingWindowAvgTen(){
+    
+  }
+  void add(float num){
+    for(int x = 0; x < 4;x++){
+      bins[x] = bins[x+1];
+    }
+    bins[4] = num;
+  }
+  float getAvg(){
+    float ans = 0;
+    for(int x = 0; x < 5;x++){
+      ans+=bins[x];
+    }
+    return ans / 5;
+  }
+  
+};
 
 class KalmanFilter
 {
@@ -219,7 +241,11 @@ class Angle
 };
 
 Angle angle;
-KalmanFilter kfilter(.125, 3 ,.75, 0);
+//KalmanFilter kfilter(.125, 3 ,.75, 0);
+SlidingWindowAvgTen desiredBin;
+SlidingWindowAvgTen kpBin;
+SlidingWindowAvgTen kdBin;
+SlidingWindowAvgTen kiBin;
 
 void setup() {
   Serial.begin(115200);
@@ -251,15 +277,20 @@ void setup() {
 
 void loop() {
   angle.update();
-  kfilter.update(angle.pitch());
+  //kfilter.update(angle.pitch());
   measurement[0] = measurement[1];
-  measurement[1] = kfilter.getMeasurement();
-  desired = desired_scaler * (float(analogRead(desired_pin)) / 1023);
-  Kp = Kp_scaler * (float(analogRead(Kp_pin)) / 1023);
-  Kd = Kd_scaler * (float(analogRead(Kd_pin)) / 1023);
-  Ki = Ki_scaler * (float(analogRead(Ki_pin)) / 1023);
-  error = desired - kfilter.getMeasurement(); // error with kalman filter
-  //error[1]= desired - angle.pitch(); // current error
+  //measurement[1] = kfilter.getMeasurement();
+  measurement[1] = angle.pitch();
+  desiredBin.add(float(analogRead(desired_pin)) / 1023);
+  desired = desired_scaler * desiredBin.getAvg();
+  kpBin.add(float(analogRead(Kp_pin)) / 1023);
+  Kp = Kp_scaler * kpBin.getAvg();
+  kdBin.add(float(analogRead(Kd_pin)) / 1023);
+  Kd = Kd_scaler * kdBin.getAvg();
+  kiBin.add(float(analogRead(Ki_pin)) / 1023);
+  Ki = Ki_scaler * kiBin.getAvg();
+  //error = desired - kfilter.getMeasurement(); // error with kalman filter
+  error = desired - angle.pitch(); // current error
   error_integral += error * angle.deltat() * Ki;
   if(error_integral > outMax) error_integral = outMax;
   else if(error_integral < outMin) error_integral = outMin;
@@ -268,7 +299,18 @@ void loop() {
   if(theta > outMax) theta = outMax;
   else if(theta < outMin) theta = outMin;
   // Print actual output angle to Arduino Serial Plotter
-  Serial.println(measurement[1]);
+  Serial.print("Measured theta: ");
+  Serial.print(measurement[1]);
+  Serial.print(" Output Motor value: ");
+  Serial.print(theta);
+  Serial.print(" Desired: ");
+  Serial.print(desired);
+  Serial.print(" Kp: ");
+  Serial.print(Kp);
+  Serial.print(" Kd: ");
+  Serial.print(Kd);
+  Serial.print(" Ki: ");
+  Serial.println(Ki);
   
   analogWrite(dutyPin1, abs(theta));  // analogRead values go from 0 to 1023, analogWrite values from 0 to 255
   digitalWrite(phasePin1, theta >0 ? HIGH : LOW);

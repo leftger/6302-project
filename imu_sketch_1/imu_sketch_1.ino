@@ -9,7 +9,7 @@
  * board and a SparkFun LSM9DS1 IMU and gets accelerometer readings from
  * the IMU.  This should then give the Teensy board the ability to
  * compensate for any imbalance and drive the motor in a corresponding
- * direction.
+ * direction using PID control.
  * 
  * TEENSY    ------------ Pololu DRV8835
  * A9 (PWM)  ------------ ENB (PWM Motor 2)
@@ -42,7 +42,6 @@ LSM9DS1 imu;
 #define LSM9DS1_M  0x1E // 
 #define LSM9DS1_AG  0x6B //
 
-#define ledPin 13      // LED connected to digital pin 9
 #define phasePin1 22
 #define phasePin2 20
 #define dutyPin1 23
@@ -53,9 +52,8 @@ LSM9DS1 imu;
 #define desired_pin A0
 #define outMax 255
 #define outMin -255
-#define SLIDING_WINDOW_SIZE 5
-
-float desired = 0;
+#define SLIDING_WINDOW_SIZE 40
+#define desired_min 120
 
 float theta = 0;
 float error;
@@ -67,12 +65,12 @@ char message[100];
 float Kp = 0;
 float Ki = 0;
 float Kd = 0;
-float offset = 0;
+float desired = 0;
 
-float Kp_scaler = 180;
+float Kp_scaler = 100;
 float Ki_scaler = 1;
 float Kd_scaler = 5;
-float desired_scaler = 180;
+float desired_max = 160;
 
 class SlidingWindowAvg
 {
@@ -173,11 +171,9 @@ class Angle
     dt = 0;
     predicted_pitch=0;
     predicted_roll=0;
-
     angle_into = 0;
     derv = 0;
     erroro = 0;
-    
   }
 
   void calibrate(){
@@ -226,10 +222,6 @@ class Angle
     predicted_pitch = alpha*(predicted_pitch + gx*dt)+(1-alpha)*acc_pitch;
     predicted_roll = alpha*(predicted_roll - gy*dt) + (1-alpha)*acc_roll;
     //angle_into +=predicted_roll*dt;
-//      Serial.print("Pitch: ");
-//      Serial.print(pitch());
-//      Serial.print(" Roll: ");
-//      Serial.println(angle());
   }
   float pitch(){
     return predicted_pitch;
@@ -303,7 +295,7 @@ void loop() {
 
 void getPIDGainsAndDesired(){
   desiredBin.add(float(analogRead(desired_pin)) / 1023);
-  desired = desired_scaler * desiredBin.getAvg();
+  desired = (desired_max- desired_min) * desiredBin.getAvg() + desired_min;
   kpBin.add(float(analogRead(Kp_pin)) / 1023);
   Kp = Kp_scaler * kpBin.getAvg();
   kdBin.add(float(analogRead(Kd_pin)) / 1023);

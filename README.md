@@ -14,18 +14,18 @@ This repository holds information pertaining to the development of a self-balanc
 
 # Pinout
 
- TEENSY    ------------ Pololu DRV8835
- A9 (PWM)  ------------ ENB (PWM Motor 2)
- A8        ------------ PHB (Direction Motor 2)
- A7        ------------ ENA (PWM Motor 1)
- A6        ------------ PHA (Direction Motor 1)
-  
- TEENSY    ------------ SparkFun LSM9DS1
- A5 (SCL0) ------------ SCL
- A4 (SDA0) ------------ SDA0
+ * TEENSY    ------------ Pololu DRV8835
+ * A9 (PWM)  ------------ ENB (PWM Motor 2)
+ * A8        ------------ PHB (Direction Motor 2)
+ * A7        ------------ ENA (PWM Motor 1)
+ * A6        ------------ PHA (Direction Motor 1)
  
- TEENSY    ------------ Potentiometers
- A3        ------------ Kp Gain
- A2        ------------ Kd Gain
- A1        ------------ Ki Gain
- A0        ------------ Desired
+ * TEENSY    ------------ SparkFun LSM9DS1
+ * A5 (SCL0) ------------ SCL
+ * A4 (SDA0) ------------ SDA0
+ 
+ * TEENSY    ------------ Potentiometers
+ * A3        ------------ Kp Gain
+ * A2        ------------ Kd Gain
+ * A1        ------------ Ki Gain
+ * A0        ------------ Desired
